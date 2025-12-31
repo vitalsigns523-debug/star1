@@ -55,16 +55,31 @@ fun Starfield() {
 
             if (currentTime - lastCreationTime > (creationInterval * 1000).toLong()) {
                 val soundResId = soundResources.random()
+
+                var red = 220
+                var green = 220
+                var blue = 220
+
+                // First boost
+                when (Random.nextInt(3)) {
+                    0 -> red = 255
+                    1 -> green = 255
+                    2 -> blue = 255
+                }
+
+                // Second boost
+                when (Random.nextInt(3)) {
+                    0 -> red = 255
+                    1 -> green = 255
+                    2 -> blue = 255
+                }
+
                 val star = Star(
                     id = nextStarId++,
                     x = (Random.nextFloat() * 0.4f) - 0.2f, // Central 20%
                     y = (Random.nextFloat() * 0.4f) - 0.2f, // Central 20%
                     z = 1f,
-                    color = Color(
-                        red = Random.nextInt(220, 256),
-                        green = Random.nextInt(220, 256),
-                        blue = Random.nextInt(220, 256)
-                    ).toArgb(),
+                    color = Color(red, green, blue).toArgb(),
                     luminosity = Random.nextFloat(),
                     soundResId = soundResId,
                     lifetime = currentTime
