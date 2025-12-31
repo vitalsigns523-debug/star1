@@ -1,27 +1,37 @@
 package com.example.stars1
 
+import android.app.Activity
 import android.media.MediaPlayer
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
 import kotlin.random.Random
-
-const val STAR_LIFETIME_MS = 10000L // 10 seconds
-const val STAR_CREATION_INTERVAL_MS = 1000L // 1 second
 
 @Composable
 fun Starfield() {
     val context = LocalContext.current
+    val settingsManager = remember { SettingsManager(context) }
+
+    var flightTime by remember { mutableStateOf(settingsManager.getFlightTime()) }
+    var creationInterval by remember { mutableStateOf(settingsManager.getCreationInterval()) }
+    var showControls by remember { mutableStateOf(false) }
+
     val stars = remember { mutableStateListOf<Star>() }
     val mediaPlayers = remember { mutableStateMapOf<Int, MediaPlayer>() }
 
@@ -33,63 +43,127 @@ fun Starfield() {
         R.raw.spaces1soundsmovie, R.raw.kepler_star_2268220, R.raw.voyager_jupiter_lightning
     )
 
-    var nextStarId = 0
+    var frameTime by remember { mutableStateOf(System.currentTimeMillis()) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(flightTime, creationInterval) {
+        var nextStarId = 0
+        var lastCreationTime = 0L
+
         while (true) {
             val currentTime = System.currentTimeMillis()
+            frameTime = currentTime
 
-            // Create a new star
-            val soundResId = soundResources.random()
-            val star = Star(
-                id = nextStarId++,
-                x = Random.nextFloat() * 2 - 1,
-                y = Random.nextFloat() * 2 - 1,
-                z = 1f,
-                color = Color(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)).hashCode(),
-                luminosity = Random.nextFloat(),
-                soundResId = soundResId,
-                lifetime = currentTime
-            )
-            stars.add(star)
+            if (currentTime - lastCreationTime > (creationInterval * 1000).toLong()) {
+                val soundResId = soundResources.random()
+                val star = Star(
+                    id = nextStarId++,
+                    x = (Random.nextFloat() * 0.4f) - 0.2f, // Central 20%
+                    y = (Random.nextFloat() * 0.4f) - 0.2f, // Central 20%
+                    z = 1f,
+                    color = Color(
+                        red = Random.nextInt(220, 256),
+                        green = Random.nextInt(220, 256),
+                        blue = Random.nextInt(220, 256)
+                    ).toArgb(),
+                    luminosity = Random.nextFloat(),
+                    soundResId = soundResId,
+                    lifetime = currentTime
+                )
+                stars.add(star)
 
-            mediaPlayers[star.id] = MediaPlayer.create(context, star.soundResId).apply {
-                isLooping = true
-                setVolume(0f, 0f)
-                start()
+                mediaPlayers[star.id] = MediaPlayer.create(context, star.soundResId).apply {
+                    isLooping = true
+                    setVolume(0f, 0f)
+                    start()
+                }
+                lastCreationTime = currentTime
             }
 
-            // Remove old stars
-            val starsToRemove = stars.filter { currentTime - it.lifetime > STAR_LIFETIME_MS }
-            stars.removeAll(starsToRemove)
-            starsToRemove.forEach { oldStar ->
-                mediaPlayers.remove(oldStar.id)?.apply {
-                    stop()
-                    release()
+            val starsToRemove = mutableListOf<Star>()
+            stars.forEach { star ->
+                val age = (currentTime - star.lifetime).toFloat() / (flightTime * 1000)
+                if (age >= 1) {
+                    starsToRemove.add(star)
+                } else {
+                    val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
+                    mediaPlayers[star.id]?.setVolume(scale, scale)
                 }
             }
 
-            delay(STAR_CREATION_INTERVAL_MS)
+            if (starsToRemove.isNotEmpty()) {
+                stars.removeAll(starsToRemove)
+                starsToRemove.forEach { starToRemove ->
+                    mediaPlayers.remove(starToRemove.id)?.apply {
+                        stop()
+                        release()
+                    }
+                }
+            }
+
+            delay(16)
         }
     }
 
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val currentTime = System.currentTimeMillis()
+    Canvas(modifier = Modifier.fillMaxSize().pointerInput(Unit) {
+        detectTapGestures { showControls = true }
+    }) {
+        val currentTime = frameTime
         stars.forEach { star ->
-            val age = (currentTime - star.lifetime).toFloat() / STAR_LIFETIME_MS
-            val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
+            val age = (currentTime - star.lifetime).toFloat() / (flightTime * 1000)
+            if (age < 1) {
+                val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
+                val denominator = 1 - age
 
-            mediaPlayers[star.id]?.setVolume(scale, scale)
+                if (denominator > 0) {
+                    val x = (star.x / denominator) * size.width / 2 + size.width / 2
+                    val y = (star.y / denominator) * size.height / 2 + size.height / 2
 
-            val x = (star.x / (1 - age)) * size.width / 2 + size.width / 2
-            val y = (star.y / (1 - age)) * size.height / 2 + size.height / 2
+                    if (x >= 0 && x < size.width && y >= 0 && y < size.height) {
+                        drawCircle(
+                            color = Color(star.color),
+                            radius = (scale * star.luminosity * 10).coerceAtLeast(0.1f),
+                            center = Offset(x, y)
+                        )
+                    }
+                }
+            }
+        }
+    }
 
-            if (x >= 0 && x < size.width && y >= 0 && y < size.height) {
-                drawCircle(
-                    color = Color(star.color),
-                    radius = scale * star.luminosity * 10,
-                    center = Offset(x, y)
-                )
+    if (showControls) {
+        Dialog(onDismissRequest = { showControls = false }) {
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Controls")
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("Flight Time: ${flightTime.toInt()} seconds")
+                    Slider(
+                        value = flightTime,
+                        onValueChange = { flightTime = it },
+                        valueRange = 1f..10f,
+                        steps = 9
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("Creation Interval: ${String.format("%.1f", creationInterval)} seconds")
+                    Slider(
+                        value = creationInterval,
+                        onValueChange = { creationInterval = it },
+                        valueRange = 0.2f..2f,
+                        steps = 17
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+                        Button(onClick = { showControls = false }) {
+                            Text("Return to Starfield")
+                        }
+                        Button(onClick = { (context as? Activity)?.finish() }) {
+                            Text("Quit App")
+                        }
+                    }
+                }
             }
         }
     }
@@ -101,6 +175,9 @@ fun Starfield() {
                 it.release()
             }
             mediaPlayers.clear()
+
+            settingsManager.setFlightTime(flightTime)
+            settingsManager.setCreationInterval(creationInterval)
         }
     }
 }
