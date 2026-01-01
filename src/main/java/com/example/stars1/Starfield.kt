@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
 import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.random.Random
 
 @Composable
@@ -111,8 +113,10 @@ fun Starfield() {
                 } else {
                     val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
 
-                    val projectedX = (star.x / (1 - age)).coerceIn(-1f, 1f)
-                    val pan = (projectedX + 1) / 2f
+                    val zPos = 1.0f - 2.0f * age
+                    val panX = if (zPos > 0) star.x / zPos else star.x
+
+                    val pan = (panX.coerceIn(-1f, 1f) + 1) / 2f
 
                     val leftVolume = scale * (1 - pan)
                     val rightVolume = scale * pan
@@ -142,24 +146,37 @@ fun Starfield() {
         val azimuth = orientation[0]
         val pitch = orientation[1]
 
-        val viewXOffset = azimuth * size.width / 2
-        val viewYOffset = -pitch * size.height / 2
+        val cosYaw = cos(-azimuth)
+        val sinYaw = sin(-azimuth)
+        val cosPitch = cos(-pitch)
+        val sinPitch = sin(-pitch)
 
         stars.forEach { star ->
             val age = (currentTime - star.lifetime).toFloat() / (flightTime * 1000)
             if (age < 1) {
-                val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
-                val denominator = 1 - age
+                val pz = 1.0f - 2.0f * age
+                val px = star.x
+                val py = star.y
 
-                if (denominator > 0) {
-                    val x = (star.x / denominator) * size.width / 2 + size.width / 2 - viewXOffset
-                    val y = (star.y / denominator) * size.height / 2 + size.height / 2 - viewYOffset
+                val px_r1 = px * cosYaw + pz * sinYaw
+                val pz_r1 = -px * sinYaw + pz * cosYaw
 
-                    if (x >= 0 && x < size.width && y >= 0 && y < size.height) {
+                val py_r2 = py * cosPitch - pz_r1 * sinPitch
+                val pz_r2 = py * sinPitch + pz_r1 * cosPitch
+                val px_r2 = px_r1
+
+                if (pz_r2 > 0) {
+                    val projectedX = (px_r2 / pz_r2) * size.width / 2f + size.width / 2f
+                    val projectedY = (py_r2 / pz_r2) * size.height / 2f + size.height / 2f
+
+                    val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
+                    val radius = (scale * star.luminosity * 10 / pz_r2).coerceAtLeast(0.1f)
+
+                    if (projectedX >= 0 && projectedX < size.width && projectedY >= 0 && projectedY < size.height) {
                         drawCircle(
                             color = Color(star.color),
-                            radius = (scale * star.luminosity * 10).coerceAtLeast(0.1f),
-                            center = Offset(x, y)
+                            radius = radius,
+                            center = Offset(projectedX, projectedY)
                         )
                     }
                 }
