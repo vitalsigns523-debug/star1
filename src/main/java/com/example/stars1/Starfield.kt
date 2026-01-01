@@ -21,37 +21,57 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
+import kotlin.math.PI
 import kotlin.random.Random
 
 @Composable
 fun Starfield() {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager(context) }
+    val orientationManager = remember { OrientationManager(context) }
 
     var flightTime by remember { mutableStateOf(settingsManager.getFlightTime()) }
     var creationInterval by remember { mutableStateOf(settingsManager.getCreationInterval()) }
     var showControls by remember { mutableStateOf(false) }
 
+    val orientation by orientationManager.orientation.collectAsState()
+
     val stars = remember { mutableStateListOf<Star>() }
     val mediaPlayers = remember { mutableStateMapOf<Int, MediaPlayer>() }
 
-    val soundResources = listOf(
-        R.raw.cc, R.raw.b37, R.raw.ddd, R.raw.fff, R.raw.jjj, R.raw.sun, R.raw.a329, R.raw.gggg,
-        R.raw.mars, R.raw.whsl, R.raw.earth, R.raw.venus, R.raw.saturn, R.raw.uranus, R.raw.jupiter,
-        R.raw.mercury, R.raw.neptune, R.raw.blackhole, R.raw.enceladus, R.raw.scarun001, R.raw.spookysaturn, R.raw.dawn_in_space,
-        R.raw.blackholemerge, R.raw.emfisis_chorus_1, R.raw.auroral_star_wars, R.raw.kepler_star_71081, R.raw.saturn_radio_waves,
-        R.raw.spaces1soundsmovie, R.raw.kepler_star_2268220, R.raw.voyager_jupiter_lightning
-    )
+    val soundResources = remember {
+        R.raw::class.java.fields.map { it.getInt(null) }
+    }
 
     var frameTime by remember { mutableStateOf(System.currentTimeMillis()) }
 
-    LaunchedEffect(flightTime, creationInterval) {
+    DisposableEffect(Unit) {
+        orientationManager.register()
+        onDispose {
+            orientationManager.unregister()
+            mediaPlayers.values.forEach {
+                it.stop()
+                it.release()
+            }
+            mediaPlayers.clear()
+
+            settingsManager.setFlightTime(flightTime)
+            settingsManager.setCreationInterval(creationInterval)
+        }
+    }
+
+    LaunchedEffect(flightTime) {
         var nextStarId = 0
         var lastCreationTime = 0L
 
         while (true) {
             val currentTime = System.currentTimeMillis()
             frameTime = currentTime
+
+            val pitch = orientationManager.orientation.value[1].coerceIn(-PI.toFloat() / 4, PI.toFloat() / 4)
+            val mappedPitch = (pitch + (PI.toFloat() / 4)) / (PI.toFloat() / 2)
+            val newCreationInterval = 2.0f - mappedPitch * 1.8f
+            creationInterval = newCreationInterval
 
             if (currentTime - lastCreationTime > (creationInterval * 1000).toLong()) {
                 val soundResId = soundResources.random()
@@ -60,24 +80,13 @@ fun Starfield() {
                 var green = 220
                 var blue = 220
 
-                // First boost
-                when (Random.nextInt(3)) {
-                    0 -> red = 255
-                    1 -> green = 255
-                    2 -> blue = 255
-                }
-
-                // Second boost
-                when (Random.nextInt(3)) {
-                    0 -> red = 255
-                    1 -> green = 255
-                    2 -> blue = 255
-                }
+                when (Random.nextInt(3)) { 0 -> red = 255; 1 -> green = 255; 2 -> blue = 255 }
+                when (Random.nextInt(3)) { 0 -> red = 255; 1 -> green = 255; 2 -> blue = 255 }
 
                 val star = Star(
                     id = nextStarId++,
-                    x = (Random.nextFloat() * 0.4f) - 0.2f, // Central 20%
-                    y = (Random.nextFloat() * 0.4f) - 0.2f, // Central 20%
+                    x = (Random.nextFloat() * 0.4f) - 0.2f,
+                    y = (Random.nextFloat() * 0.4f) - 0.2f,
                     z = 1f,
                     color = Color(red, green, blue).toArgb(),
                     luminosity = Random.nextFloat(),
@@ -101,7 +110,14 @@ fun Starfield() {
                     starsToRemove.add(star)
                 } else {
                     val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
-                    mediaPlayers[star.id]?.setVolume(scale, scale)
+
+                    val projectedX = (star.x / (1 - age)).coerceIn(-1f, 1f)
+                    val pan = (projectedX + 1) / 2f
+
+                    val leftVolume = scale * (1 - pan)
+                    val rightVolume = scale * pan
+
+                    mediaPlayers[star.id]?.setVolume(leftVolume, rightVolume)
                 }
             }
 
@@ -123,6 +139,12 @@ fun Starfield() {
         detectTapGestures { showControls = true }
     }) {
         val currentTime = frameTime
+        val azimuth = orientation[0]
+        val pitch = orientation[1]
+
+        val viewXOffset = azimuth * size.width / 2
+        val viewYOffset = -pitch * size.height / 2
+
         stars.forEach { star ->
             val age = (currentTime - star.lifetime).toFloat() / (flightTime * 1000)
             if (age < 1) {
@@ -130,8 +152,8 @@ fun Starfield() {
                 val denominator = 1 - age
 
                 if (denominator > 0) {
-                    val x = (star.x / denominator) * size.width / 2 + size.width / 2
-                    val y = (star.y / denominator) * size.height / 2 + size.height / 2
+                    val x = (star.x / denominator) * size.width / 2 + size.width / 2 - viewXOffset
+                    val y = (star.y / denominator) * size.height / 2 + size.height / 2 - viewYOffset
 
                     if (x >= 0 && x < size.width && y >= 0 && y < size.height) {
                         drawCircle(
@@ -166,7 +188,8 @@ fun Starfield() {
                         value = creationInterval,
                         onValueChange = { creationInterval = it },
                         valueRange = 0.2f..2f,
-                        steps = 17
+                        steps = 17,
+                        enabled = false // Disabled when using motion controls
                     )
                     Spacer(modifier = Modifier.height(32.dp))
 
@@ -180,19 +203,6 @@ fun Starfield() {
                     }
                 }
             }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            mediaPlayers.values.forEach {
-                it.stop()
-                it.release()
-            }
-            mediaPlayers.clear()
-
-            settingsManager.setFlightTime(flightTime)
-            settingsManager.setCreationInterval(creationInterval)
         }
     }
 }
