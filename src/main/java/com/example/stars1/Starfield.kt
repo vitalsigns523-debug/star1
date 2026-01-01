@@ -62,18 +62,23 @@ fun Starfield() {
         }
     }
 
-    LaunchedEffect(flightTime) {
+    LaunchedEffect(flightTime, showControls) {
         var nextStarId = 0
         var lastCreationTime = 0L
+        var lastFrameTime = System.currentTimeMillis()
 
         while (true) {
             val currentTime = System.currentTimeMillis()
+            val elapsed = currentTime - lastFrameTime
+            lastFrameTime = currentTime
             frameTime = currentTime
 
-            val pitch = orientationManager.orientation.value[1].coerceIn(-PI.toFloat() / 4, PI.toFloat() / 4)
-            val mappedPitch = (pitch + (PI.toFloat() / 4)) / (PI.toFloat() / 2)
-            val newCreationInterval = 2.0f - mappedPitch * 1.8f
-            creationInterval = newCreationInterval
+            if (!showControls) {
+                val pitch = orientation[1]
+                // Tilt up (negative pitch) decreases flight time (accelerates), tilt down increases.
+                val delta = -pitch * (elapsed / 1000f)
+                flightTime = (flightTime + delta).coerceIn(1f, 10f)
+            }
 
             if (currentTime - lastCreationTime > (creationInterval * 1000).toLong()) {
                 val soundResId = soundResources.random()
@@ -205,8 +210,7 @@ fun Starfield() {
                         value = creationInterval,
                         onValueChange = { creationInterval = it },
                         valueRange = 0.2f..2f,
-                        steps = 17,
-                        enabled = false // Disabled when using motion controls
+                        steps = 17
                     )
                     Spacer(modifier = Modifier.height(32.dp))
 
