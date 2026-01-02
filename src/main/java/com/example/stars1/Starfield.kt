@@ -4,7 +4,6 @@ import android.app.Activity
 import android.media.MediaPlayer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -95,16 +94,18 @@ fun Starfield() {
             frameTime = currentTime
 
             if (!showControls) {
+                val devicePitch = orientation[1]
+                val deviceRoll = orientation[2]
+
                 if (pitchMode == PitchMode.ELEVATOR) {
-                    val pitch = orientation[2] // Use sensor's roll for pitch in landscape
-                    val delta = -pitch * (elapsed / 1000f)
+                    val delta = -deviceRoll * (elapsed / 1000f)
                     flightTime = (flightTime + delta).coerceIn(1f, 10f)
                 }
                 if (yawMode == YawMode.PAN_VIEW) {
                     viewAzimuth = orientation[0]
                 }
                 if (pitchMode == PitchMode.TILT_VIEW) {
-                    viewPitch = orientation[2] // Use sensor's roll for pitch in landscape
+                    viewPitch = deviceRoll
                 }
             } else {
                 viewAzimuth = 0f
@@ -153,12 +154,12 @@ fun Starfield() {
                     val px = star.x
                     val py = star.y
 
-                    val azimuth = if (yawMode == YawMode.RUDDER) orientation[0] else 0f
-                    val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[2] else 0f // Corrected
-                    val roll = if (rollMode == RollMode.AILERON) orientation[1] else 0f      // Corrected
+                    val yaw = if (yawMode == YawMode.RUDDER) orientation[0] else 0f
+                    val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[2] else 0f
+                    val roll = if (rollMode == RollMode.AILERON) orientation[1] else 0f
 
-                    val cosYaw = cos(-azimuth)
-                    val sinYaw = sin(-azimuth)
+                    val cosYaw = cos(-yaw)
+                    val sinYaw = sin(-yaw)
                     val cosPitch = cos(-pitch)
                     val sinPitch = sin(-pitch)
                     val cosRoll = cos(-roll)
@@ -203,12 +204,12 @@ fun Starfield() {
         detectTapGestures { showControls = true }
     }) {
         val currentTime = frameTime
-        val azimuth = if (yawMode == YawMode.RUDDER) orientation[0] else 0f
-        val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[2] else 0f // Corrected
-        val roll = if (rollMode == RollMode.AILERON) orientation[1] else 0f      // Corrected
+        val yaw = if (yawMode == YawMode.RUDDER) orientation[0] else 0f
+        val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[2] else 0f
+        val roll = if (rollMode == RollMode.AILERON) orientation[1] else 0f
 
-        val cosYaw = cos(-azimuth)
-        val sinYaw = sin(-azimuth)
+        val cosYaw = cos(-yaw)
+        val sinYaw = sin(-yaw)
         val cosPitch = cos(-pitch)
         val sinPitch = sin(-pitch)
         val cosRoll = cos(-roll)
@@ -259,13 +260,15 @@ fun Starfield() {
             Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Controls", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.values())
-                    SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.values())
-                    SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.values())
-
                     Spacer(modifier = Modifier.height(16.dp))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.values())
+                        SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.values())
+                        SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.values())
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     Text("Flight Time: ${flightTime.toInt()} seconds")
                     Slider(
@@ -301,45 +304,40 @@ fun Starfield() {
 }
 
 @Composable
-fun <T> SpinnerControl(label: String, selected: T, onSelected: (T) -> Unit, options: Array<T>) {
+fun <T> SpinnerControl(label: String, selected: T, onSelected: (T) -> Unit, options: Array<T>) where T : Enum<T> {
     var expanded by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
-        Box {
-            Surface(
-                shape = RoundedCornerShape(4.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        ) {
+            Row(
+                modifier = Modifier
+                    .clickable { expanded = true }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier
-                        .clickable { expanded = true }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(selected.toString())
-                }
+                Text("$label: ${selected.name}", style = MaterialTheme.typography.bodyLarge)
             }
+        }
 
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.toString()) },
-                        onClick = {
-                            onSelected(option)
-                            expanded = false
-                        }
-                    )
-                }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.align(Alignment.CenterEnd)
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.name) },
+                    onClick = {
+                        onSelected(option)
+                        expanded = false
+                    }
+                )
             }
         }
     }
