@@ -3,9 +3,12 @@ package com.example.stars1
 import android.app.Activity
 import android.media.MediaPlayer
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -36,14 +39,26 @@ fun Starfield() {
     var creationInterval by remember { mutableStateOf(settingsManager.getCreationInterval()) }
     var showControls by remember { mutableStateOf(false) }
 
+    var rollMode by remember { mutableStateOf(settingsManager.getRollMode()) }
+    var pitchMode by remember { mutableStateOf(settingsManager.getPitchMode()) }
+    var yawMode by remember { mutableStateOf(settingsManager.getYawMode()) }
+
     val orientation by orientationManager.orientation.collectAsState()
+    var viewAzimuth by remember { mutableStateOf(0f) }
+    var viewPitch by remember { mutableStateOf(0f) }
 
     val stars = remember { mutableStateListOf<Star>() }
     val mediaPlayers = remember { mutableStateMapOf<Int, MediaPlayer>() }
 
-    val soundResources = remember {
-        R.raw::class.java.fields.map { it.getInt(null) }
-    }
+    val soundResources = listOf(
+        R.raw.cc, R.raw.b37, R.raw.ddd, R.raw.fff, R.raw.jjj, R.raw.sun, R.raw.a329, R.raw.gggg,
+        R.raw.mars, R.raw.vela, R.raw.whsl, R.raw.b1055, R.raw.earth, R.raw.emhop, R.raw.f0329,
+        R.raw.merc1, R.raw.vela2, R.raw.venus, R.raw.f7tuc2, R.raw.saturn, R.raw.sirius, R.raw.uranus,
+        R.raw.epwhist, R.raw.jupiter, R.raw.mercury, R.raw.neptune, R.raw.blackhole, R.raw.enceladus,
+        R.raw.betelgeuze, R.raw.spookysaturn, R.raw.dawn_in_space, R.raw.blackholemerge, R.raw.emfisis_chorus_1,
+        R.raw.kepler_star_71081, R.raw.saturn_radio_waves, R.raw.spaces1soundsmovie, R.raw.kepler_star_2268220,
+        R.raw.voyager_jupiter_lightning
+    )
 
     var frameTime by remember { mutableStateOf(System.currentTimeMillis()) }
 
@@ -59,10 +74,13 @@ fun Starfield() {
 
             settingsManager.setFlightTime(flightTime)
             settingsManager.setCreationInterval(creationInterval)
+            settingsManager.setRollMode(rollMode)
+            settingsManager.setPitchMode(pitchMode)
+            settingsManager.setYawMode(yawMode)
         }
     }
 
-    LaunchedEffect(flightTime, showControls) {
+    LaunchedEffect(flightTime, showControls, rollMode, pitchMode, yawMode) {
         var nextStarId = 0
         var lastCreationTime = 0L
         var lastFrameTime = System.currentTimeMillis()
@@ -74,10 +92,20 @@ fun Starfield() {
             frameTime = currentTime
 
             if (!showControls) {
-                val pitch = orientation[1]
-                // Tilt up (negative pitch) decreases flight time (accelerates), tilt down increases.
-                val delta = -pitch * (elapsed / 1000f)
-                flightTime = (flightTime + delta).coerceIn(1f, 10f)
+                if (pitchMode == PitchMode.ELEVATOR) {
+                    val pitch = orientation[1]
+                    val delta = -pitch * (elapsed / 1000f)
+                    flightTime = (flightTime + delta).coerceIn(1f, 10f)
+                }
+                if (yawMode == YawMode.PAN_VIEW) {
+                    viewAzimuth = orientation[0]
+                }
+                if (pitchMode == PitchMode.TILT_VIEW) {
+                    viewPitch = orientation[1]
+                }
+            } else {
+                viewAzimuth = 0f
+                viewPitch = 0f
             }
 
             if (currentTime - lastCreationTime > (creationInterval * 1000).toLong()) {
@@ -118,9 +146,33 @@ fun Starfield() {
                 } else {
                     val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
 
-                    val zPos = 1.0f - 2.0f * age
-                    val panX = if (zPos > 0) star.x / zPos else star.x
+                    val pz = 1.0f - 2.0f * age
+                    val px = star.x
+                    val py = star.y
 
+                    val azimuth = if (yawMode == YawMode.RUDDER) orientation[0] else 0f
+                    val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[1] else 0f
+                    val roll = if (rollMode == RollMode.AILERON) orientation[2] else 0f
+
+                    val cosYaw = cos(-azimuth)
+                    val sinYaw = sin(-azimuth)
+                    val cosPitch = cos(-pitch)
+                    val sinPitch = sin(-pitch)
+                    val cosRoll = cos(-roll)
+                    val sinRoll = sin(-roll)
+
+                    val px_r1 = px * cosYaw + pz * sinYaw
+                    val pz_r1 = -px * sinYaw + pz * cosYaw
+
+                    val py_r2 = py * cosPitch - pz_r1 * sinPitch
+                    val pz_r2 = py * sinPitch + pz_r1 * cosPitch
+                    val px_r2 = px_r1
+
+                    val px_r3 = px_r2 * cosRoll - py_r2 * sinRoll
+                    val py_r3 = px_r2 * sinRoll + py_r2 * cosRoll
+                    val pz_r3 = pz_r2
+
+                    val panX = if (pz_r3 > 0) px_r3 / pz_r3 else px_r3
                     val pan = (panX.coerceIn(-1f, 1f) + 1) / 2f
 
                     val leftVolume = scale * (1 - pan)
@@ -148,13 +200,19 @@ fun Starfield() {
         detectTapGestures { showControls = true }
     }) {
         val currentTime = frameTime
-        val azimuth = orientation[0]
-        val pitch = orientation[1]
+        val azimuth = if (yawMode == YawMode.RUDDER) orientation[0] else 0f
+        val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[1] else 0f
+        val roll = if (rollMode == RollMode.AILERON) orientation[2] else 0f
 
         val cosYaw = cos(-azimuth)
         val sinYaw = sin(-azimuth)
         val cosPitch = cos(-pitch)
         val sinPitch = sin(-pitch)
+        val cosRoll = cos(-roll)
+        val sinRoll = sin(-roll)
+
+        val viewXOffset = if (yawMode == YawMode.PAN_VIEW) viewAzimuth * size.width / 2 else 0f
+        val viewYOffset = if (pitchMode == PitchMode.TILT_VIEW) -viewPitch * size.height / 2 else 0f
 
         stars.forEach { star ->
             val age = (currentTime - star.lifetime).toFloat() / (flightTime * 1000)
@@ -170,12 +228,16 @@ fun Starfield() {
                 val pz_r2 = py * sinPitch + pz_r1 * cosPitch
                 val px_r2 = px_r1
 
-                if (pz_r2 > 0) {
-                    val projectedX = (px_r2 / pz_r2) * size.width / 2f + size.width / 2f
-                    val projectedY = (py_r2 / pz_r2) * size.height / 2f + size.height / 2f
+                val px_r3 = px_r2 * cosRoll - py_r2 * sinRoll
+                val py_r3 = px_r2 * sinRoll + py_r2 * cosRoll
+                val pz_r3 = pz_r2
+
+                if (pz_r3 > 0) {
+                    val projectedX = (px_r3 / pz_r3) * size.width / 2f + size.width / 2f - viewXOffset
+                    val projectedY = (py_r3 / pz_r3) * size.height / 2f + size.height / 2f - viewYOffset
 
                     val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
-                    val radius = (scale * star.luminosity * 10 / pz_r2).coerceAtLeast(0.1f)
+                    val radius = (scale * star.luminosity * 10 / pz_r3).coerceAtLeast(0.1f)
 
                     if (projectedX >= 0 && projectedX < size.width && projectedY >= 0 && projectedY < size.height) {
                         drawCircle(
@@ -196,12 +258,19 @@ fun Starfield() {
                     Text("Controls")
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.values())
+                    SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.values())
+                    SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.values())
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Text("Flight Time: ${flightTime.toInt()} seconds")
                     Slider(
                         value = flightTime,
                         onValueChange = { flightTime = it },
                         valueRange = 1f..10f,
-                        steps = 9
+                        steps = 9,
+                        enabled = pitchMode != PitchMode.ELEVATOR
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -222,6 +291,26 @@ fun Starfield() {
                             Text("Quit App")
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun <T> SpinnerControl(label: String, selected: T, onSelected: (T) -> Unit, options: Array<T>) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("$label: ")
+        Box {
+            Text(selected.toString(), modifier = Modifier.clickable { expanded = true })
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { option ->
+                    DropdownMenuItem(text = { Text(option.toString()) }, onClick = {
+                        onSelected(option)
+                        expanded = false
+                    })
                 }
             }
         }
