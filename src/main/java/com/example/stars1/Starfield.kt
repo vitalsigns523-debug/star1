@@ -2,10 +2,13 @@ package com.example.stars1
 
 import android.app.Activity
 import android.media.MediaPlayer
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -93,7 +96,7 @@ fun Starfield() {
 
             if (!showControls) {
                 if (pitchMode == PitchMode.ELEVATOR) {
-                    val pitch = orientation[1]
+                    val pitch = orientation[2] // Use sensor's roll for pitch in landscape
                     val delta = -pitch * (elapsed / 1000f)
                     flightTime = (flightTime + delta).coerceIn(1f, 10f)
                 }
@@ -101,7 +104,7 @@ fun Starfield() {
                     viewAzimuth = orientation[0]
                 }
                 if (pitchMode == PitchMode.TILT_VIEW) {
-                    viewPitch = orientation[1]
+                    viewPitch = orientation[2] // Use sensor's roll for pitch in landscape
                 }
             } else {
                 viewAzimuth = 0f
@@ -151,8 +154,8 @@ fun Starfield() {
                     val py = star.y
 
                     val azimuth = if (yawMode == YawMode.RUDDER) orientation[0] else 0f
-                    val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[1] else 0f
-                    val roll = if (rollMode == RollMode.AILERON) orientation[2] else 0f
+                    val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[2] else 0f // Corrected
+                    val roll = if (rollMode == RollMode.AILERON) orientation[1] else 0f      // Corrected
 
                     val cosYaw = cos(-azimuth)
                     val sinYaw = sin(-azimuth)
@@ -201,8 +204,8 @@ fun Starfield() {
     }) {
         val currentTime = frameTime
         val azimuth = if (yawMode == YawMode.RUDDER) orientation[0] else 0f
-        val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[1] else 0f
-        val roll = if (rollMode == RollMode.AILERON) orientation[2] else 0f
+        val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[2] else 0f // Corrected
+        val roll = if (rollMode == RollMode.AILERON) orientation[1] else 0f      // Corrected
 
         val cosYaw = cos(-azimuth)
         val sinYaw = sin(-azimuth)
@@ -255,8 +258,8 @@ fun Starfield() {
         Dialog(onDismissRequest = { showControls = false }) {
             Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Controls")
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Controls", style = MaterialTheme.typography.headlineSmall)
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.values())
                     SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.values())
@@ -272,7 +275,7 @@ fun Starfield() {
                         steps = 9,
                         enabled = pitchMode != PitchMode.ELEVATOR
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text("Creation Interval: ${String.format("%.1f", creationInterval)} seconds")
                     Slider(
@@ -281,7 +284,7 @@ fun Starfield() {
                         valueRange = 0.2f..2f,
                         steps = 17
                     )
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
                         Button(onClick = { showControls = false }) {
@@ -301,16 +304,41 @@ fun Starfield() {
 fun <T> SpinnerControl(label: String, selected: T, onSelected: (T) -> Unit, options: Array<T>) {
     var expanded by remember { mutableStateOf(false) }
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("$label: ")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
         Box {
-            Text(selected.toString(), modifier = Modifier.clickable { expanded = true })
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clickable { expanded = true }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(selected.toString())
+                }
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
                 options.forEach { option ->
-                    DropdownMenuItem(text = { Text(option.toString()) }, onClick = {
-                        onSelected(option)
-                        expanded = false
-                    })
+                    DropdownMenuItem(
+                        text = { Text(option.toString()) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        }
+                    )
                 }
             }
         }
