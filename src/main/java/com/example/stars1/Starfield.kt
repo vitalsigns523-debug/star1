@@ -51,6 +51,10 @@ fun Starfield() {
     var viewAzimuth by remember { mutableStateOf(0f) }
     var viewPitch by remember { mutableStateOf(0f) }
 
+    var yawOffset by remember { mutableStateOf(0f) }
+    var pitchOffset by remember { mutableStateOf(0f) }
+    var rollOffset by remember { mutableStateOf(0f) }
+
     val stars = remember { mutableStateListOf<Star>() }
     val mediaPlayers = remember { mutableStateMapOf<Int, MediaPlayer>() }
 
@@ -70,10 +74,7 @@ fun Starfield() {
         orientationManager.register()
         onDispose {
             orientationManager.unregister()
-            mediaPlayers.values.forEach {
-                it.stop()
-                it.release()
-            }
+            mediaPlayers.values.forEach { it.stop(); it.release() }
             mediaPlayers.clear()
 
             settingsManager.setFlightTime(flightTime)
@@ -84,7 +85,15 @@ fun Starfield() {
         }
     }
 
-    LaunchedEffect(rollMode, pitchMode, yawMode, creationInterval) {
+    LaunchedEffect(showControls) {
+        if (showControls) {
+            yawOffset = orientation[0]
+            pitchOffset = orientation[2]
+            rollOffset = orientation[1]
+        }
+    }
+
+    LaunchedEffect(rollMode, pitchMode, yawMode, creationInterval, flightTime) {
         var nextStarId = 0
         var lastCreationTime = 0L
         var lastFrameTime = System.currentTimeMillis()
@@ -96,18 +105,16 @@ fun Starfield() {
             frameTime = currentTime
 
             if (!showControls) {
-                val devicePitch = orientation[1]
-                val deviceRoll = orientation[2]
-
+                val devicePitch = orientation[2] - pitchOffset
                 if (pitchMode == PitchMode.ELEVATOR) {
-                    val delta = -deviceRoll * (elapsed / 1000f)
+                    val delta = -devicePitch * (elapsed / 1000f)
                     flightTime = (flightTime + delta).coerceIn(1f, 10f)
                 }
                 if (yawMode == YawMode.PAN_VIEW) {
-                    viewAzimuth = orientation[0]
+                    viewAzimuth = orientation[0] - yawOffset
                 }
                 if (pitchMode == PitchMode.TILT_VIEW) {
-                    viewPitch = deviceRoll
+                    viewPitch = devicePitch
                 }
             } else {
                 viewAzimuth = 0f
@@ -117,23 +124,11 @@ fun Starfield() {
             if (currentTime - lastCreationTime > (creationInterval * 1000).toLong()) {
                 val soundResId = soundResources.random()
 
-                var red = 220
-                var green = 220
-                var blue = 220
-
+                var red = 220; var green = 220; var blue = 220
                 when (Random.nextInt(3)) { 0 -> red = 255; 1 -> green = 255; 2 -> blue = 255 }
                 when (Random.nextInt(3)) { 0 -> red = 255; 1 -> green = 255; 2 -> blue = 255 }
 
-                val star = Star(
-                    id = nextStarId++,
-                    x = (Random.nextFloat() * 0.4f) - 0.2f,
-                    y = (Random.nextFloat() * 0.4f) - 0.2f,
-                    z = 1f,
-                    color = Color(red, green, blue).toArgb(),
-                    luminosity = Random.nextFloat(),
-                    soundResId = soundResId,
-                    lifetime = currentTime
-                )
+                val star = Star(id = nextStarId++, x = (Random.nextFloat() * 0.4f) - 0.2f, y = (Random.nextFloat() * 0.4f) - 0.2f, z = 1f, color = Color(red, green, blue).toArgb(), luminosity = Random.nextFloat(), soundResId = soundResId, lifetime = currentTime)
                 stars.add(star)
 
                 mediaPlayers[star.id] = MediaPlayer.create(context, star.soundResId).apply {
@@ -156,66 +151,56 @@ fun Starfield() {
                     val px = star.x
                     val py = star.y
 
-                    val yaw = if (yawMode == YawMode.RUDDER && !showControls) orientation[0] else 0f
-                    val pitch = if (pitchMode == PitchMode.ELEVATOR && !showControls) orientation[2] else 0f
-                    val roll = if (rollMode == RollMode.AILERON && !showControls) orientation[1] else 0f
+                    val yaw = if (yawMode == YawMode.RUDDER && !showControls) orientation[0] - yawOffset else 0f
+                    val pitch = if (pitchMode == PitchMode.ELEVATOR && !showControls) orientation[2] - pitchOffset else 0f
+                    val roll = when(rollMode) {
+                        RollMode.AILERON -> if (!showControls) orientation[1] - rollOffset else 0f
+                        RollMode.INVARIANT -> if (!showControls) -(orientation[1] - rollOffset) else 0f
+                        RollMode.IGNORE -> 0f
+                    }
 
-                    val cosYaw = cos(-yaw)
-                    val sinYaw = sin(-yaw)
-                    val cosPitch = cos(-pitch)
-                    val sinPitch = sin(-pitch)
-                    val cosRoll = cos(-roll)
-                    val sinRoll = sin(-roll)
+                    val cosYaw = cos(-yaw); val sinYaw = sin(-yaw)
+                    val cosPitch = cos(-pitch); val sinPitch = sin(-pitch)
+                    val cosRoll = cos(-roll); val sinRoll = sin(-roll)
 
                     val px_r1 = px * cosYaw + pz * sinYaw
                     val pz_r1 = -px * sinYaw + pz * cosYaw
 
                     val py_r2 = py * cosPitch - pz_r1 * sinPitch
                     val pz_r2 = py * sinPitch + pz_r1 * cosPitch
-                    val px_r2 = px_r1
 
-                    val px_r3 = px_r2 * cosRoll - py_r2 * sinRoll
-                    val py_r3 = px_r2 * sinRoll + py_r2 * cosRoll
-                    val pz_r3 = pz_r2
+                    val px_r3 = px_r1 * cosRoll - py_r2 * sinRoll
 
-                    val panX = if (pz_r3 > 0) px_r3 / pz_r3 else px_r3
+                    val panX = if (pz_r2 > 0) px_r3 / pz_r2 else px_r3
                     val pan = (panX.coerceIn(-1f, 1f) + 1) / 2f
 
-                    val leftVolume = scale * (1 - pan)
-                    val rightVolume = scale * pan
-
+                    val leftVolume = scale * (1 - pan); val rightVolume = scale * pan
                     mediaPlayers[star.id]?.setVolume(leftVolume, rightVolume)
                 }
             }
 
             if (starsToRemove.isNotEmpty()) {
                 stars.removeAll(starsToRemove)
-                starsToRemove.forEach { starToRemove ->
-                    mediaPlayers.remove(starToRemove.id)?.apply {
-                        stop()
-                        release()
-                    }
-                }
+                starsToRemove.forEach { starToRemove -> mediaPlayers.remove(starToRemove.id)?.apply { stop(); release() } }
             }
 
             delay(16)
         }
     }
 
-    Canvas(modifier = Modifier.fillMaxSize().pointerInput(Unit) {
-        detectTapGestures { showControls = true }
-    }) {
+    Canvas(modifier = Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { showControls = true } }) {
         val currentTime = frameTime
-        val yaw = if (yawMode == YawMode.RUDDER && !showControls) orientation[0] else 0f
-        val pitch = if (pitchMode == PitchMode.ELEVATOR && !showControls) orientation[2] else 0f
-        val roll = if (rollMode == RollMode.AILERON && !showControls) orientation[1] else 0f
+        val yaw = if (yawMode == YawMode.RUDDER && !showControls) orientation[0] - yawOffset else 0f
+        val pitch = if (pitchMode == PitchMode.ELEVATOR && !showControls) orientation[2] - pitchOffset else 0f
+        val roll = when(rollMode) {
+            RollMode.AILERON -> if (!showControls) orientation[1] - rollOffset else 0f
+            RollMode.INVARIANT -> if (!showControls) -(orientation[1] - rollOffset) else 0f
+            RollMode.IGNORE -> 0f
+        }
 
-        val cosYaw = cos(-yaw)
-        val sinYaw = sin(-yaw)
-        val cosPitch = cos(-pitch)
-        val sinPitch = sin(-pitch)
-        val cosRoll = cos(-roll)
-        val sinRoll = sin(-roll)
+        val cosYaw = cos(-yaw); val sinYaw = sin(-yaw)
+        val cosPitch = cos(-pitch); val sinPitch = sin(-pitch)
+        val cosRoll = cos(-roll); val sinRoll = sin(-roll)
 
         val viewXOffset = if (yawMode == YawMode.PAN_VIEW) viewAzimuth * size.width / 2 else 0f
         val viewYOffset = if (pitchMode == PitchMode.TILT_VIEW) -viewPitch * size.height / 2 else 0f
@@ -232,25 +217,19 @@ fun Starfield() {
 
                 val py_r2 = py * cosPitch - pz_r1 * sinPitch
                 val pz_r2 = py * sinPitch + pz_r1 * cosPitch
-                val px_r2 = px_r1
 
-                val px_r3 = px_r2 * cosRoll - py_r2 * sinRoll
-                val py_r3 = px_r2 * sinRoll + py_r2 * cosRoll
-                val pz_r3 = pz_r2
+                val px_r3 = px_r1 * cosRoll - py_r2 * sinRoll
+                val py_r3 = px_r1 * sinRoll + py_r2 * cosRoll
 
-                if (pz_r3 > 0) {
-                    val projectedX = (px_r3 / pz_r3) * size.width / 2f + size.width / 2f - viewXOffset
-                    val projectedY = (py_r3 / pz_r3) * size.height / 2f + size.height / 2f - viewYOffset
+                if (pz_r2 > 0) {
+                    val projectedX = (px_r3 / pz_r2) * size.width / 2f + size.width / 2f - viewXOffset
+                    val projectedY = (py_r3 / pz_r2) * size.height / 2f + size.height / 2f - viewYOffset
 
                     val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
-                    val radius = (scale * star.luminosity * 10 / pz_r3).coerceAtLeast(0.1f)
+                    val radius = (scale * star.luminosity * 10 / pz_r2).coerceAtLeast(0.1f)
 
                     if (projectedX >= 0 && projectedX < size.width && projectedY >= 0 && projectedY < size.height) {
-                        drawCircle(
-                            color = Color(star.color),
-                            radius = radius,
-                            center = Offset(projectedX, projectedY)
-                        )
+                        drawCircle(color = Color(star.color), radius = radius, center = Offset(projectedX, projectedY))
                     }
                 }
             }
@@ -261,47 +240,30 @@ fun Starfield() {
         Dialog(onDismissRequest = { showControls = false }) {
             Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface) {
                 Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .verticalScroll(rememberScrollState())
+                    modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())
                 ) {
                     Text("Controls", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.values())
                         SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.values())
                         SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.values())
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     Text("Flight Time: ${flightTime.toInt()} seconds")
-                    Slider(
-                        value = flightTime,
-                        onValueChange = { flightTime = it },
-                        valueRange = 1f..10f,
-                        steps = 9,
-                        enabled = pitchMode != PitchMode.ELEVATOR
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text("Creation Interval: ${String.format("%.1f", creationInterval)} seconds")
-                    Slider(
-                        value = creationInterval,
-                        onValueChange = { creationInterval = it },
-                        valueRange = 0.2f..2f,
-                        steps = 17
-                    )
+                    Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9, enabled = pitchMode != PitchMode.ELEVATOR)
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-                        Button(onClick = { showControls = false }) {
-                            Text("Return to Starfield")
-                        }
-                        Button(onClick = { (context as? Activity)?.finish() }) {
-                            Text("Quit App")
-                        }
+                    Text("Creation Interval: ${String.format("%.1f", creationInterval)} seconds")
+                    Slider(value = creationInterval, onValueChange = { creationInterval = it }, valueRange = 0.2f..2f, steps = 17)
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
+                        Button(onClick = { showControls = false }) { Text("Return to Starfield") }
+                        Button(onClick = { (context as? Activity)?.finish() }) { Text("Quit App") }
                     }
                 }
             }
@@ -321,9 +283,7 @@ fun <T> SpinnerControl(label: String, selected: T, onSelected: (T) -> Unit, opti
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
         ) {
             Row(
-                modifier = Modifier
-                    .clickable { expanded = true }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier.clickable { expanded = true }.padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -337,13 +297,7 @@ fun <T> SpinnerControl(label: String, selected: T, onSelected: (T) -> Unit, opti
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.name) },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                    }
-                )
+                DropdownMenuItem(text = { Text(option.name) }, onClick = { onSelected(option); expanded = false })
             }
         }
     }
