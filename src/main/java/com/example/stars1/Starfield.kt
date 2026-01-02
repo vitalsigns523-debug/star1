@@ -7,7 +7,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -82,7 +84,7 @@ fun Starfield() {
         }
     }
 
-    LaunchedEffect(flightTime, showControls, rollMode, pitchMode, yawMode) {
+    LaunchedEffect(rollMode, pitchMode, yawMode, creationInterval) {
         var nextStarId = 0
         var lastCreationTime = 0L
         var lastFrameTime = System.currentTimeMillis()
@@ -154,9 +156,9 @@ fun Starfield() {
                     val px = star.x
                     val py = star.y
 
-                    val yaw = if (yawMode == YawMode.RUDDER) orientation[0] else 0f
-                    val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[2] else 0f
-                    val roll = if (rollMode == RollMode.AILERON) orientation[1] else 0f
+                    val yaw = if (yawMode == YawMode.RUDDER && !showControls) orientation[0] else 0f
+                    val pitch = if (pitchMode == PitchMode.ELEVATOR && !showControls) orientation[2] else 0f
+                    val roll = if (rollMode == RollMode.AILERON && !showControls) orientation[1] else 0f
 
                     val cosYaw = cos(-yaw)
                     val sinYaw = sin(-yaw)
@@ -204,9 +206,9 @@ fun Starfield() {
         detectTapGestures { showControls = true }
     }) {
         val currentTime = frameTime
-        val yaw = if (yawMode == YawMode.RUDDER) orientation[0] else 0f
-        val pitch = if (pitchMode == PitchMode.ELEVATOR) orientation[2] else 0f
-        val roll = if (rollMode == RollMode.AILERON) orientation[1] else 0f
+        val yaw = if (yawMode == YawMode.RUDDER && !showControls) orientation[0] else 0f
+        val pitch = if (pitchMode == PitchMode.ELEVATOR && !showControls) orientation[2] else 0f
+        val roll = if (rollMode == RollMode.AILERON && !showControls) orientation[1] else 0f
 
         val cosYaw = cos(-yaw)
         val sinYaw = sin(-yaw)
@@ -258,9 +260,13 @@ fun Starfield() {
     if (showControls) {
         Dialog(onDismissRequest = { showControls = false }) {
             Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
                     Text("Controls", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.values())
@@ -268,7 +274,7 @@ fun Starfield() {
                         SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.values())
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text("Flight Time: ${flightTime.toInt()} seconds")
                     Slider(
@@ -287,7 +293,7 @@ fun Starfield() {
                         valueRange = 0.2f..2f,
                         steps = 17
                     )
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
                         Button(onClick = { showControls = false }) {
