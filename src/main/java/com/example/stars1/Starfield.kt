@@ -28,7 +28,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
-import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -88,12 +87,12 @@ fun Starfield() {
     LaunchedEffect(showControls) {
         if (showControls) {
             yawOffset = orientation[0]
-            pitchOffset = orientation[2]
-            rollOffset = orientation[1]
+            pitchOffset = orientation[2] // landscape mode
+            rollOffset = orientation[1]  // landscape mode
         }
     }
 
-    LaunchedEffect(rollMode, pitchMode, yawMode, creationInterval, flightTime) {
+    LaunchedEffect(rollMode, pitchMode, yawMode, creationInterval) {
         var nextStarId = 0
         var lastCreationTime = 0L
         var lastFrameTime = System.currentTimeMillis()
@@ -263,7 +262,11 @@ fun Starfield() {
 
                     Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
                         Button(onClick = { showControls = false }) { Text("Return to Starfield") }
-                        Button(onClick = { (context as? Activity)?.finish() }) { Text("Quit App") }
+                        Button(onClick = {
+                            mediaPlayers.values.forEach { it.stop(); it.release() }
+                            mediaPlayers.clear()
+                            (context as? Activity)?.finish()
+                        }) { Text("Quit App") }
                     }
                 }
             }
