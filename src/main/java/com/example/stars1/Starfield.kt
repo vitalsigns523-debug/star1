@@ -26,8 +26,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.cos
@@ -189,93 +187,95 @@ fun Starfield() {
         }
     }
 
-    Canvas(modifier = Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { showControls = true } }) {
-        val currentTime = frameTime
-        val yaw = if (yawMode == YawMode.RUDDER && !showControls) orientation[0] - yawOffset else 0f
-        val pitch = if (pitchMode == PitchMode.ELEVATOR && !showControls) orientation[2] - pitchOffset else 0f
-        val roll = when(rollMode) {
-            RollMode.AILERON -> if (!showControls) orientation[1] - rollOffset else 0f
-            RollMode.INVARIANT -> if (!showControls) -(orientation[1] - rollOffset) else 0f
-            RollMode.IGNORE -> 0f
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { showControls = true } }) {
+            val currentTime = frameTime
+            val yaw = if (yawMode == YawMode.RUDDER && !showControls) orientation[0] - yawOffset else 0f
+            val pitch = if (pitchMode == PitchMode.ELEVATOR && !showControls) orientation[2] - pitchOffset else 0f
+            val roll = when(rollMode) {
+                RollMode.AILERON -> if (!showControls) orientation[1] - rollOffset else 0f
+                RollMode.INVARIANT -> if (!showControls) -(orientation[1] - rollOffset) else 0f
+                RollMode.IGNORE -> 0f
+            }
 
-        val cosYaw = cos(-yaw); val sinYaw = sin(-yaw)
-        val cosPitch = cos(-pitch); val sinPitch = sin(-pitch)
-        val cosRoll = cos(-roll); val sinRoll = sin(-roll)
+            val cosYaw = cos(-yaw); val sinYaw = sin(-yaw)
+            val cosPitch = cos(-pitch); val sinPitch = sin(-pitch)
+            val cosRoll = cos(-roll); val sinRoll = sin(-roll)
 
-        val viewXOffset = if (yawMode == YawMode.PAN_VIEW) viewAzimuth * size.width / 2 else 0f
-        val viewYOffset = if (pitchMode == PitchMode.TILT_VIEW) -viewPitch * size.height / 2 else 0f
+            val viewXOffset = if (yawMode == YawMode.PAN_VIEW) viewAzimuth * size.width / 2 else 0f
+            val viewYOffset = if (pitchMode == PitchMode.TILT_VIEW) -viewPitch * size.height / 2 else 0f
 
-        stars.forEach { star ->
-            val age = (currentTime - star.lifetime).toFloat() / (flightTime * 1000)
-            if (age < 1) {
-                val pz = 1.0f - 2.0f * age
-                val px = star.x
-                val py = star.y
+            stars.forEach { star ->
+                val age = (currentTime - star.lifetime).toFloat() / (flightTime * 1000)
+                if (age < 1) {
+                    val pz = 1.0f - 2.0f * age
+                    val px = star.x
+                    val py = star.y
 
-                val pxR1 = px * cosYaw + pz * sinYaw
-                val pzR1 = -px * sinYaw + pz * cosYaw
+                    val pxR1 = px * cosYaw + pz * sinYaw
+                    val pzR1 = -px * sinYaw + pz * cosYaw
 
-                val pyR2 = py * cosPitch - pzR1 * sinPitch
-                val pzR2 = py * sinPitch + pzR1 * cosPitch
+                    val pyR2 = py * cosPitch - pzR1 * sinPitch
+                    val pzR2 = py * sinPitch + pzR1 * cosPitch
 
-                val pxR3 = pxR1 * cosRoll - pyR2 * sinRoll
-                val pyR3 = pxR1 * sinRoll + pyR2 * cosRoll
+                    val pxR3 = pxR1 * cosRoll - pyR2 * sinRoll
+                    val pyR3 = pxR1 * sinRoll + pyR2 * cosRoll
 
-                if (pzR2 > 0) {
-                    val projectedX = (pxR3 / pzR2) * size.width / 2f + size.width / 2f - viewXOffset
-                    val projectedY = (pyR3 / pzR2) * size.height / 2f + size.height / 2f - viewYOffset
+                    if (pzR2 > 0) {
+                        val projectedX = (pxR3 / pzR2) * size.width / 2f + size.width / 2f - viewXOffset
+                        val projectedY = (pyR3 / pzR2) * size.height / 2f + size.height / 2f - viewYOffset
 
-                    val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
-                    val radius = (scale * star.luminosity * 10 / pzR2).coerceAtLeast(0.1f)
+                        val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
+                        val radius = (scale * star.luminosity * 10 / pzR2).coerceAtLeast(0.1f)
 
-                    if (projectedX >= 0 && projectedX < size.width && projectedY >= 0 && projectedY < size.height) {
-                        drawCircle(color = Color(star.color), radius = radius, center = Offset(projectedX, projectedY))
+                        if (projectedX >= 0 && projectedX < size.width && projectedY >= 0 && projectedY < size.height) {
+                            drawCircle(color = Color(star.color), radius = radius, center = Offset(projectedX, projectedY))
+                        }
                     }
                 }
             }
         }
-    }
 
-    if (showControls) {
-        Dialog(
-            onDismissRequest = { showControls = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.8f),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surface
+        if (showControls) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())
+                Surface(
+                    modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.8f),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surface
                 ) {
-                    Text("Controls", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Column(
+                        modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())
+                    ) {
+                        Text("Controls", style = MaterialTheme.typography.headlineSmall)
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.entries)
-                        SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.entries)
-                        SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.entries)
-                    }
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.entries)
+                            SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.entries)
+                            SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.entries)
+                        }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                    Text("Flight Time: ${flightTime.toInt()} seconds")
-                    Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9)
-                    Spacer(modifier = Modifier.height(16.dp))
+                        Text("Flight Time: ${flightTime.toInt()} seconds")
+                        Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9)
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds")
-                    Slider(value = creationInterval, onValueChange = { creationInterval = it }, valueRange = 0.2f..2f, steps = 17)
-                    Spacer(modifier = Modifier.height(24.dp))
+                        Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds")
+                        Slider(value = creationInterval, onValueChange = { creationInterval = it }, valueRange = 0.2f..2f, steps = 17)
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                    Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
-                        Button(onClick = { showControls = false }) { Text("Return to Starfield") }
-                        Button(onClick = {
-                            mediaPlayers.values.forEach { it.stop(); it.release() }
-                            mediaPlayers.clear()
-                            (context as? Activity)?.finish()
-                        }) { Text("Quit App") }
+                        Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
+                            Button(onClick = { showControls = false }) { Text("Return to Starfield") }
+                            Button(onClick = {
+                                mediaPlayers.values.forEach { it.stop(); it.release() }
+                                mediaPlayers.clear()
+                                (context as? Activity)?.finish()
+                            }) { Text("Quit App") }
+                        }
                     }
                 }
             }
