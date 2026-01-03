@@ -39,8 +39,8 @@ fun Starfield() {
     val settingsManager = remember { SettingsManager(context) }
     val orientationManager = remember { OrientationManager(context) }
 
-    var flightTime by remember { mutableStateOf(settingsManager.getFlightTime()) }
-    var creationInterval by remember { mutableStateOf(settingsManager.getCreationInterval()) }
+    var flightTime by remember { mutableFloatStateOf(settingsManager.getFlightTime()) }
+    var creationInterval by remember { mutableFloatStateOf(settingsManager.getCreationInterval()) }
     var showControls by remember { mutableStateOf(false) }
 
     var rollMode by remember { mutableStateOf(settingsManager.getRollMode()) }
@@ -48,12 +48,12 @@ fun Starfield() {
     var yawMode by remember { mutableStateOf(settingsManager.getYawMode()) }
 
     val orientation by orientationManager.orientation.collectAsState()
-    var viewAzimuth by remember { mutableStateOf(0f) }
-    var viewPitch by remember { mutableStateOf(0f) }
+    var viewAzimuth by remember { mutableFloatStateOf(0f) }
+    var viewPitch by remember { mutableFloatStateOf(0f) }
 
-    var yawOffset by remember { mutableStateOf(0f) }
-    var pitchOffset by remember { mutableStateOf(0f) }
-    var rollOffset by remember { mutableStateOf(0f) }
+    var yawOffset by remember { mutableFloatStateOf(0f) }
+    var pitchOffset by remember { mutableFloatStateOf(0f) }
+    var rollOffset by remember { mutableFloatStateOf(0f) }
 
     val stars = remember { mutableStateListOf<Star>() }
     val mediaPlayers = remember { mutableStateMapOf<Int, MediaPlayer>() }
@@ -163,15 +163,15 @@ fun Starfield() {
                     val cosPitch = cos(-pitch); val sinPitch = sin(-pitch)
                     val cosRoll = cos(-roll); val sinRoll = sin(-roll)
 
-                    val px_r1 = px * cosYaw + pz * sinYaw
-                    val pz_r1 = -px * sinYaw + pz * cosYaw
+                    val pxR1 = px * cosYaw + pz * sinYaw
+                    val pzR1 = -px * sinYaw + pz * cosYaw
 
-                    val py_r2 = py * cosPitch - pz_r1 * sinPitch
-                    val pz_r2 = py * sinPitch + pz_r1 * cosPitch
+                    val pyR2 = py * cosPitch - pzR1 * sinPitch
+                    val pzR2 = py * sinPitch + pzR1 * cosPitch
 
-                    val px_r3 = px_r1 * cosRoll - py_r2 * sinRoll
+                    val pxR3 = pxR1 * cosRoll - pyR2 * sinRoll
 
-                    val panX = if (pz_r2 > 0) px_r3 / pz_r2 else px_r3
+                    val panX = if (pzR2 > 0) pxR3 / pzR2 else pxR3
                     val pan = (panX.coerceIn(-1f, 1f) + 1) / 2f
 
                     val leftVolume = scale * (1 - pan); val rightVolume = scale * pan
@@ -212,21 +212,21 @@ fun Starfield() {
                 val px = star.x
                 val py = star.y
 
-                val px_r1 = px * cosYaw + pz * sinYaw
-                val pz_r1 = -px * sinYaw + pz * cosYaw
+                val pxR1 = px * cosYaw + pz * sinYaw
+                val pzR1 = -px * sinYaw + pz * cosYaw
 
-                val py_r2 = py * cosPitch - pz_r1 * sinPitch
-                val pz_r2 = py * sinPitch + pz_r1 * cosPitch
+                val pyR2 = py * cosPitch - pzR1 * sinPitch
+                val pzR2 = py * sinPitch + pzR1 * cosPitch
 
-                val px_r3 = px_r1 * cosRoll - py_r2 * sinRoll
-                val py_r3 = px_r1 * sinRoll + py_r2 * cosRoll
+                val pxR3 = pxR1 * cosRoll - pyR2 * sinRoll
+                val pyR3 = pxR1 * sinRoll + pyR2 * cosRoll
 
-                if (pz_r2 > 0) {
-                    val projectedX = (px_r3 / pz_r2) * size.width / 2f + size.width / 2f - viewXOffset
-                    val projectedY = (py_r3 / pz_r2) * size.height / 2f + size.height / 2f - viewYOffset
+                if (pzR2 > 0) {
+                    val projectedX = (pxR3 / pzR2) * size.width / 2f + size.width / 2f - viewXOffset
+                    val projectedY = (pyR3 / pzR2) * size.height / 2f + size.height / 2f - viewYOffset
 
                     val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
-                    val radius = (scale * star.luminosity * 10 / pz_r2).coerceAtLeast(0.1f)
+                    val radius = (scale * star.luminosity * 10 / pzR2).coerceAtLeast(0.1f)
 
                     if (projectedX >= 0 && projectedX < size.width && projectedY >= 0 && projectedY < size.height) {
                         drawCircle(color = Color(star.color), radius = radius, center = Offset(projectedX, projectedY))
