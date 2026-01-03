@@ -27,6 +27,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.cos
@@ -237,7 +238,10 @@ fun Starfield() {
     }
 
     if (showControls) {
-        Dialog(onDismissRequest = { showControls = false }) {
+        Dialog(
+            onDismissRequest = { showControls = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.8f),
                 shape = MaterialTheme.shapes.medium,
@@ -258,7 +262,7 @@ fun Starfield() {
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Text("Flight Time: ${flightTime.toInt()} seconds")
-                    Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9, enabled = pitchMode != PitchMode.ELEVATOR)
+                    Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9)
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds")
