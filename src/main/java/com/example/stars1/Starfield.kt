@@ -238,43 +238,54 @@ fun Starfield() {
 
         if (showControls) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = {}) },
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.8f),
                     shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surface
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())
+                        modifier = Modifier.padding(16.dp)
                     ) {
-                        Text("Controls", style = MaterialTheme.typography.headlineSmall)
+                        Text("Controls", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.CenterHorizontally))
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.entries)
-                            SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.entries)
-                            SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.entries)
-                        }
+                        Row(Modifier.fillMaxWidth()) {
+                            // Left Column for Spinners
+                            Column(
+                                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.entries)
+                                SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.entries)
+                                SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.entries)
+                            }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(Modifier.width(16.dp))
 
-                        Text("Flight Time: ${flightTime.toInt()} seconds")
-                        Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9)
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds")
-                        Slider(value = creationInterval, onValueChange = { creationInterval = it }, valueRange = 0.2f..2f, steps = 17)
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
-                            Button(onClick = { showControls = false }) { Text("Return to Starfield") }
-                            Button(onClick = {
-                                mediaPlayers.values.forEach { it.stop(); it.release() }
-                                mediaPlayers.clear()
-                                (context as? Activity)?.finish()
-                            }) { Text("Quit App") }
+                            // Right Column for Sliders and Buttons
+                            Column(
+                                modifier = Modifier.weight(1f).padding(start = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Flight Time: ${flightTime.toInt()} seconds")
+                                Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds")
+                                Slider(value = creationInterval, onValueChange = { creationInterval = it }, valueRange = 0.2f..2f, steps = 17)
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
+                                    Button(onClick = { showControls = false }) { Text("Stars") }
+                                    Button(onClick = {
+                                        mediaPlayers.values.forEach { it.stop(); it.release() }
+                                        mediaPlayers.clear()
+                                        (context as? Activity)?.finish()
+                                    }) { Text("Quit") }
+                                }
+                            }
                         }
                     }
                 }
