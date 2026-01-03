@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
+import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -245,9 +246,9 @@ fun Starfield() {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.values())
-                        SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.values())
-                        SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.values())
+                        SpinnerControl("Roll", rollMode, { rollMode = it }, RollMode.entries)
+                        SpinnerControl("Pitch", pitchMode, { pitchMode = it }, PitchMode.entries)
+                        SpinnerControl("Yaw", yawMode, { yawMode = it }, YawMode.entries)
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -256,7 +257,7 @@ fun Starfield() {
                     Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9, enabled = pitchMode != PitchMode.ELEVATOR)
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Text("Creation Interval: ${String.format("%.1f", creationInterval)} seconds")
+                    Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds")
                     Slider(value = creationInterval, onValueChange = { creationInterval = it }, valueRange = 0.2f..2f, steps = 17)
                     Spacer(modifier = Modifier.height(24.dp))
 
@@ -275,7 +276,7 @@ fun Starfield() {
 }
 
 @Composable
-fun <T> SpinnerControl(label: String, selected: T, onSelected: (T) -> Unit, options: Array<T>) where T : Enum<T> {
+fun <T> SpinnerControl(label: String, selected: T, onSelected: (T) -> Unit, options: List<T>) where T : Enum<T> {
     var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxWidth()) {
