@@ -238,7 +238,11 @@ fun Starfield() {
 
     if (showControls) {
         Dialog(onDismissRequest = { showControls = false }) {
-            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.8f),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surface
+            ) {
                 Column(
                     modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())
                 ) {
