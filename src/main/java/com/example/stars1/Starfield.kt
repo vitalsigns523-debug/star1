@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.cos
@@ -244,7 +246,7 @@ fun Starfield() {
                 Surface(
                     modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.8f),
                     shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surface,
+                    color = Color(0xFF0F0000),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
                     Column(
@@ -268,7 +270,7 @@ fun Starfield() {
 
                             // Right Column for Sliders and Buttons
                             Column(
-                                modifier = Modifier.weight(1f).padding(start = 8.dp),
+                                modifier = Modifier.weight(1f).padding(start = 8.dp).verticalScroll(rememberScrollState()),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text("Flight Time: ${flightTime.toInt()} seconds")
@@ -302,15 +304,15 @@ fun <T> SpinnerControl(label: String, selected: T, onSelected: (T) -> Unit, opti
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(8.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f)),
+            color = Color(0xFF6200EE) // Purple background
         ) {
             Row(
                 modifier = Modifier.clickable { expanded = true }.padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("$label: ${selected.name}", style = MaterialTheme.typography.bodyLarge)
+                Text("$label: ${selected.name}", color = Color.White, style = MaterialTheme.typography.bodyLarge)
             }
         }
 

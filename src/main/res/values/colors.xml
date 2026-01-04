@@ -8,4 +8,8 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="dark_blue">#000014</color>
+    <color name="crimson">#0F0000</color>
+    <color name="dark_green">#001400</color>
+    <color name="dark_red">#140000</color>
+    <color name="indigo">#00000C</color>
 </resources>
