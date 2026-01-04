@@ -26,8 +26,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.cos
@@ -252,7 +250,7 @@ fun Starfield() {
                     Column(
                         modifier = Modifier.padding(16.dp)
                     ) {
-                        Text("Controls", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.CenterHorizontally))
+                        Text("Controls", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.CenterHorizontally), color = Color.White)
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Row(Modifier.fillMaxWidth()) {
@@ -273,10 +271,10 @@ fun Starfield() {
                                 modifier = Modifier.weight(1f).padding(start = 8.dp).verticalScroll(rememberScrollState()),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Flight Time: ${flightTime.toInt()} seconds")
+                                Text("Flight Time: ${flightTime.toInt()} seconds", color = Color.White)
                                 Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9)
                                 Spacer(modifier = Modifier.height(16.dp))
-                                Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds")
+                                Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds", color = Color.White)
                                 Slider(value = creationInterval, onValueChange = { creationInterval = it }, valueRange = 0.2f..2f, steps = 17)
                                 Spacer(modifier = Modifier.height(24.dp))
                                 Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
