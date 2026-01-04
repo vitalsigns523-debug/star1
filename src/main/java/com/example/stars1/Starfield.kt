@@ -271,10 +271,10 @@ fun Starfield() {
                                 modifier = Modifier.weight(1f).padding(start = 8.dp).verticalScroll(rememberScrollState()),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Flight Time: ${flightTime.toInt()} seconds", color = Color.White)
+                                Text("Flight Time: ${flightTime.toInt()} seconds", color = Color.Gray)
                                 Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9)
                                 Spacer(modifier = Modifier.height(16.dp))
-                                Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds", color = Color.White)
+                                Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds", color = Color.Gray)
                                 Slider(value = creationInterval, onValueChange = { creationInterval = it }, valueRange = 0.2f..2f, steps = 17)
                                 Spacer(modifier = Modifier.height(24.dp))
                                 Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
