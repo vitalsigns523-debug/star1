@@ -170,7 +170,7 @@ fun Starfield() {
 
                     val pxR3 = pxR1 * cosRoll - pyR2 * sinRoll
 
-                    val panX = if (pzR2 > 0) pxR3 / pzR2 else pxR3
+                    val panX = if (pzR2 != 0f) pxR3 / pzR2 else pxR3
                     val pan = (panX.coerceIn(-1f, 1f) + 1) / 2f
 
                     val leftVolume = scale * (1 - pan); val rightVolume = scale * pan
@@ -221,16 +221,14 @@ fun Starfield() {
                     val pxR3 = pxR1 * cosRoll - pyR2 * sinRoll
                     val pyR3 = pxR1 * sinRoll + pyR2 * cosRoll
 
-                    if (pzR2 > 0) {
+                    if (pzR2 != 0f) {
                         val projectedX = (pxR3 / pzR2) * size.width / 2f + size.width / 2f - viewXOffset
                         val projectedY = (pyR3 / pzR2) * size.height / 2f + size.height / 2f - viewYOffset
 
                         val scale = if (age < 0.5f) age * 2 else (1 - age) * 2
                         val radius = (scale * star.luminosity * 10 / pzR2).coerceAtLeast(0.1f)
 
-                        if (projectedX >= 0 && projectedX < size.width && projectedY >= 0 && projectedY < size.height) {
-                            drawCircle(color = Color(star.color), radius = radius, center = Offset(projectedX, projectedY))
-                        }
+                        drawCircle(color = Color(star.color), radius = radius, center = Offset(projectedX, projectedY))
                     }
                 }
             }
@@ -271,10 +269,10 @@ fun Starfield() {
                                 modifier = Modifier.weight(1f).padding(start = 8.dp).verticalScroll(rememberScrollState()),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Flight Time: ${flightTime.toInt()} seconds", color = Color.White)
+                                Text("Flight Time: ${flightTime.toInt()} seconds", color = Color.Gray)
                                 Slider(value = flightTime, onValueChange = { flightTime = it }, valueRange = 1f..10f, steps = 9)
                                 Spacer(modifier = Modifier.height(16.dp))
-                                Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds", color = Color.White)
+                                Text("Creation Interval: ${String.format(Locale.US, "%.1f", creationInterval)} seconds", color = Color.Gray)
                                 Slider(value = creationInterval, onValueChange = { creationInterval = it }, valueRange = 0.2f..2f, steps = 17)
                                 Spacer(modifier = Modifier.height(24.dp))
                                 Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
